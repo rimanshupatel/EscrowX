@@ -12,6 +12,10 @@ import ChatPage from '@/app/chat/page';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAuthStore } from '@/store/authStore';
 import { ToastContainer } from '@/components/shared/ToastContainer';
+import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
+import ClientDashboardPage from '@/pages/ClientDashboardPage';
+import FreelancerDashboardPage from '@/pages/FreelancerDashboardPage';
+import AdminDashboardPage from '@/pages/AdminDashboardPage';
 
 // Redirect route for general /dashboard access
 function DashboardRedirect() {
@@ -44,7 +48,7 @@ export default function App() {
         <Route path="/dashboard" element={<DashboardRedirect />} />
 
         {/* CLIENT Protected Routes */}
-        <Route path="/client/dashboard" element={<ProtectedRoute allowedRoles={['CLIENT']}><DashboardPage tab="overview" /></ProtectedRoute>} />
+        <Route path="/client/dashboard" element={<ProtectedRoute allowedRoles={['CLIENT']}><DashboardLayout><ClientDashboardPage /></DashboardLayout></ProtectedRoute>} />
         <Route path="/client/jobs" element={<ProtectedRoute allowedRoles={['CLIENT']}><DashboardPage tab="jobs" /></ProtectedRoute>} />
         <Route path="/client/escrows" element={<ProtectedRoute allowedRoles={['CLIENT']}><DashboardPage tab="escrows" /></ProtectedRoute>} />
         <Route path="/client/payments" element={<ProtectedRoute allowedRoles={['CLIENT']}><DashboardPage tab="payments" /></ProtectedRoute>} />
@@ -56,7 +60,7 @@ export default function App() {
         <Route path="/client/analytics" element={<ProtectedRoute allowedRoles={['CLIENT']}><AnalyticsPage /></ProtectedRoute>} />
 
         {/* FREELANCER Protected Routes */}
-        <Route path="/freelancer/dashboard" element={<ProtectedRoute allowedRoles={['FREELANCER']}><DashboardPage tab="overview" /></ProtectedRoute>} />
+        <Route path="/freelancer/dashboard" element={<ProtectedRoute allowedRoles={['FREELANCER']}><DashboardLayout><FreelancerDashboardPage /></DashboardLayout></ProtectedRoute>} />
         <Route path="/freelancer/jobs" element={<ProtectedRoute allowedRoles={['FREELANCER']}><DashboardPage tab="jobs" /></ProtectedRoute>} />
         <Route path="/freelancer/applications" element={<ProtectedRoute allowedRoles={['FREELANCER']}><DashboardPage tab="applications" /></ProtectedRoute>} />
         <Route path="/freelancer/escrows" element={<ProtectedRoute allowedRoles={['FREELANCER']}><DashboardPage tab="escrows" /></ProtectedRoute>} />
@@ -68,7 +72,7 @@ export default function App() {
         <Route path="/freelancer/analytics" element={<ProtectedRoute allowedRoles={['FREELANCER']}><AnalyticsPage /></ProtectedRoute>} />
 
         {/* ADMIN Protected Routes */}
-        <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={['ADMIN']}><DashboardPage tab="overview" /></ProtectedRoute>} />
+        <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={['ADMIN']}><DashboardLayout><AdminDashboardPage /></DashboardLayout></ProtectedRoute>} />
         <Route path="/admin/disputes" element={<ProtectedRoute allowedRoles={['ADMIN']}><DisputesPage /></ProtectedRoute>} />
         <Route path="/admin/analytics" element={<ProtectedRoute allowedRoles={['ADMIN']}><AnalyticsPage /></ProtectedRoute>} />
         <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['ADMIN']}><DashboardPage tab="settings" /></ProtectedRoute>} />

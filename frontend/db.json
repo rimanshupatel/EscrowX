@@ -1,0 +1,188 @@
+{
+  "client_stats": {
+    "totalEscrows": 12,
+    "activeEscrows": 4,
+    "completedJobs": 7,
+    "totalXlmSpent": 2340
+  },
+  "freelancer_stats": {
+    "activeOrders": 3,
+    "pendingDeliveries": 2,
+    "completedOrders": 18,
+    "totalXlmEarned": 5870
+  },
+  "admin_stats": {
+    "totalPlatformEscrows": 148,
+    "activeDisputes": 6,
+    "totalXlmOnPlatform": 98200,
+    "flaggedUsers": 3
+  },
+  "escrows": [
+    {
+      "id": "esc_001",
+      "jobTitle": "AI Agent Development",
+      "freelancerName": "Alex Rivera",
+      "freelancerAvatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex",
+      "clientName": "Priya Shah",
+      "clientAvatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Priya",
+      "amountLocked": 500,
+      "deadline": "2026-07-10",
+      "status": "PENDING",
+      "createdAt": "2026-06-20"
+    },
+    {
+      "id": "esc_002",
+      "jobTitle": "Logo Design",
+      "freelancerName": "Marco Lenz",
+      "freelancerAvatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Marco",
+      "clientName": "Priya Shah",
+      "clientAvatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Priya",
+      "amountLocked": 150,
+      "deadline": "2026-06-30",
+      "status": "DELIVERED",
+      "createdAt": "2026-06-15"
+    },
+    {
+      "id": "esc_003",
+      "jobTitle": "Web App Development",
+      "freelancerName": "Sara Kim",
+      "freelancerAvatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Sara",
+      "clientName": "Priya Shah",
+      "clientAvatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Priya",
+      "amountLocked": 900,
+      "deadline": "2026-07-20",
+      "status": "DISPUTED",
+      "createdAt": "2026-06-10"
+    },
+    {
+      "id": "esc_004",
+      "jobTitle": "Smart Contract Audit",
+      "freelancerName": "James Obi",
+      "freelancerAvatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=James",
+      "clientName": "Ravi Menon",
+      "clientAvatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Ravi",
+      "amountLocked": 300,
+      "deadline": "2026-07-05",
+      "status": "PENDING",
+      "createdAt": "2026-06-22"
+    }
+  ],
+  "activities": [
+    {
+      "id": "act_001",
+      "message": "Freelancer delivered work on Logo Design",
+      "type": "DELIVERY",
+      "timestamp": "2026-06-25T09:30:00Z"
+    },
+    {
+      "id": "act_002",
+      "message": "Dispute opened on Web App project",
+      "type": "DISPUTE",
+      "timestamp": "2026-06-24T14:15:00Z"
+    },
+    {
+      "id": "act_003",
+      "message": "Escrow released — 150 XLM sent",
+      "type": "RELEASE",
+      "timestamp": "2026-06-23T11:00:00Z"
+    },
+    {
+      "id": "act_004",
+      "message": "Client approved your delivery — 80 XLM released",
+      "type": "RELEASE",
+      "timestamp": "2026-06-22T16:45:00Z"
+    },
+    {
+      "id": "act_005",
+      "message": "New escrow created for your gig",
+      "type": "NEW_ESCROW",
+      "timestamp": "2026-06-21T08:00:00Z"
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg_001",
+      "from": "Alex Rivera",
+      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex",
+      "preview": "I have pushed the first milestone, please review",
+      "timestamp": "2026-06-25T10:00:00Z",
+      "unread": true
+    },
+    {
+      "id": "msg_002",
+      "from": "Marco Lenz",
+      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Marco",
+      "preview": "Logo files are ready, check the IPFS link",
+      "timestamp": "2026-06-24T18:30:00Z",
+      "unread": false
+    },
+    {
+      "id": "msg_003",
+      "from": "Sara Kim",
+      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Sara",
+      "preview": "Can we discuss the dispute? I have evidence",
+      "timestamp": "2026-06-23T09:00:00Z",
+      "unread": true
+    }
+  ],
+  "gigs": [
+    {
+      "id": "gig_001",
+      "title": "I will build Stellar smart contracts",
+      "freelancerId": "fl_001",
+      "viewsThisWeek": 142,
+      "ordersReceived": 5,
+      "rating": 4.9
+    },
+    {
+      "id": "gig_002",
+      "title": "I will design modern Web3 UIs",
+      "freelancerId": "fl_001",
+      "viewsThisWeek": 89,
+      "ordersReceived": 3,
+      "rating": 4.7
+    }
+  ],
+  "disputes": [
+    {
+      "id": "dis_001",
+      "escrowId": "esc_003",
+      "jobTitle": "Web App Development",
+      "clientName": "Priya Shah",
+      "freelancerName": "Sara Kim",
+      "amountLocked": 900,
+      "openedAt": "2026-06-24T14:15:00Z",
+      "status": "OPEN",
+      "assignedToDAO": false
+    },
+    {
+      "id": "dis_002",
+      "escrowId": "esc_005",
+      "jobTitle": "NFT Minting Platform",
+      "clientName": "Leo Wang",
+      "freelancerName": "Diana Cruz",
+      "amountLocked": 450,
+      "openedAt": "2026-06-20T10:00:00Z",
+      "status": "OPEN",
+      "assignedToDAO": false
+    }
+  ],
+  "users": [
+    {
+      "id": "usr_001",
+      "name": "New User Alpha",
+      "walletAddress": "GBDT...K9XM",
+      "joinedAt": "2026-06-24",
+      "flagged": false,
+      "role": "CLIENT"
+    },
+    {
+      "id": "usr_002",
+      "name": "Flagged Account Beta",
+      "walletAddress": "GCXY...P2RT",
+      "joinedAt": "2026-06-22",
+      "flagged": true,
+      "role": "FREELANCER"
+    }
+  ]
+}
