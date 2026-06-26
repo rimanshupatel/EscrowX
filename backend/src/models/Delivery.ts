@@ -17,11 +17,11 @@ export interface IDeliveryComment {
 }
 
 export interface IDelivery extends Document {
-  deliveryId: string;
+  escrowId: string;
   projectId: Schema.Types.ObjectId;
   freelancerId: Schema.Types.ObjectId;
   clientId: Schema.Types.ObjectId;
-  status: 'working' | 'delivered' | 'approved' | 'revision_requested';
+  status: 'working' | 'delivered' | 'approved' | 'revision_requested' | 'REFUNDED';
   budget: number;
   deadline: Date;
   notes: string;
@@ -52,13 +52,13 @@ const DeliveryCommentSchema = new Schema<IDeliveryComment>({
 });
 
 const DeliverySchema = new Schema<IDelivery>({
-  deliveryId: { type: String, required: true, unique: true },
+  escrowId: { type: String, required: false, unique: true, sparse: true },
   projectId: { type: Schema.Types.ObjectId, ref: 'Listing', required: true },
   freelancerId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   clientId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   status: {
     type: String,
-    enum: ['working', 'delivered', 'approved', 'revision_requested'],
+    enum: ['working', 'delivered', 'approved', 'revision_requested', 'REFUNDED'],
     default: 'working',
     required: true
   },

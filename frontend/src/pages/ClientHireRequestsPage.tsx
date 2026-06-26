@@ -2,12 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ClipboardList, ArrowRight, Check, X, User } from 'lucide-react';
 import { DashboardLayout } from '../components/dashboard/DashboardLayout';
-import { proposalService } from '../services/api';
+import { proposalService, escrowService } from '../services/api';
+import { useAuthStore } from '../store/authStore';
+import { useEscrowContract } from '../hooks/useEscrowContract';
+import { sorobanClient } from '../lib/soroban';
 
 export default function ClientHireRequestsPage() {
   const [proposals, setProposals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { user: currentUser, walletAddress } = useAuthStore();
+  const { markInProgress } = useEscrowContract();
 
   const fetchReceivedProposals = async () => {
     try {
@@ -28,18 +33,51 @@ export default function ClientHireRequestsPage() {
     if (!window.confirm(`Are you sure you want to ${status} this proposal?`)) return;
     try {
       if (status === 'accept') {
-        const res = await proposalService.acceptProposal(proposalId);
-        alert('Proposal accepted! Redirecting to fund the escrow contract...');
-        // Redirect to create escrow pre-filled with proposal terms
-        const proj = res.projectId;
-        navigate(`/escrow/create?listingId=${proj._id || proj}&amount=${res.bidAmount}&counterpartyAddress=${res.freelancerWallet}&counterpartyId=${res.freelancerId}&title=${encodeURIComponent((proj as any).title || 'Project')}`);
+        const proposal = proposals.find(p => p._id === proposalId);
+        if (!proposal) {
+          alert('Proposal not found');
+          return;
+        }
+
+        const listingId = proposal.projectId?._id || proposal.projectId;
+        if (!listingId) {
+          alert('Listing not found for this proposal');
+          return;
+        }
+
+        // Fetch ProjectEscrow
+        const projectEscrow = await escrowService.getProjectEscrowByListing(listingId);
+        const escrowId = projectEscrow.escrowId;
+
+        // Verify on-chain state before transaction
+        const onChainEscrow = await sorobanClient.getEscrow(escrowId);
+        if (onChainEscrow.status !== 'FUNDED') {
+          alert(`On-chain escrow status must be FUNDED. Current status: ${onChainEscrow.status}`);
+          return;
+        }
+
+        const activeWallet = walletAddress || currentUser?.walletAddress;
+        if (!activeWallet) {
+          alert('Please connect your Freighter wallet first.');
+          return;
+        }
+
+        const res = await markInProgress(escrowId, activeWallet, proposal.freelancerId?.walletAddress || '', projectEscrow._id);
+        if (!res.success) {
+          alert(res.error || 'Failed to execute markInProgress on-chain.');
+          return;
+        }
+
+        await proposalService.acceptProposal(proposalId, { txHash: res.txHash });
+        alert('Proposal accepted and contract marked in progress successfully!');
+        fetchReceivedProposals();
       } else {
         await proposalService.rejectProposal(proposalId);
         alert('Proposal rejected successfully.');
         fetchReceivedProposals();
       }
-    } catch (err) {
-      alert('Failed to update proposal status');
+    } catch (err: any) {
+      alert(err.response?.data?.error || err.message || 'Failed to update proposal status');
     }
   };
 

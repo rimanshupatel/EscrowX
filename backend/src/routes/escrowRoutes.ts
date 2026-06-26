@@ -10,6 +10,7 @@ import {
   getMyEscrows,
   createProjectEscrow,
   getProjectTransactions,
+  getProjectEscrowByListing,
 } from '../controllers/escrowController';
 import {
   postEscrowUpdate,
@@ -22,6 +23,7 @@ const router = Router();
 // Project Escrow Specific Routes (Registered before :id to prevent conflict)
 router.post('/project-escrow', verifyToken, requireRole(['CLIENT']), createProjectEscrow);
 router.get('/project-escrow/transactions', verifyToken, requireRole(['CLIENT']), getProjectTransactions);
+router.get('/project-escrow/listing/:listingId', verifyToken, getProjectEscrowByListing);
 
 router.get('/my', verifyToken, getMyEscrows);
 router.get('/:id', verifyToken, getEscrowDetails);

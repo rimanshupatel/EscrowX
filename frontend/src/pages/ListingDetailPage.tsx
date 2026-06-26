@@ -3,8 +3,10 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Clock, MessageSquare, ArrowRight, ArrowLeft, CheckCircle2, ShieldAlert, X, AlertCircle } from 'lucide-react';
 import { DashboardLayout } from '../components/dashboard/DashboardLayout';
-import { listingService, chatService, proposalService, hireRequestService } from '../services/api';
+import { listingService, chatService, proposalService, hireRequestService, escrowService } from '../services/api';
 import { useAuthStore } from '../store/authStore';
+import { useEscrowContract } from '../hooks/useEscrowContract';
+import { sorobanClient } from '../lib/soroban';
 
 // Contact Info sharing check helper
 const hasContactInfo = (text: string): boolean => {
@@ -23,7 +25,8 @@ const hasContactInfo = (text: string): boolean => {
 export default function ListingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user: currentUser } = useAuthStore();
+  const { user: currentUser, walletAddress } = useAuthStore();
+  const { markInProgress } = useEscrowContract();
   
   const [listing, setListing] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
@@ -182,9 +185,43 @@ export default function ListingDetailPage() {
 
   const handleReviewApplication = async (appId: string, status: 'ACCEPTED' | 'REJECTED') => {
     if (!listing) return;
+    setActionLoading(true);
     try {
       if (status === 'ACCEPTED') {
-        await proposalService.acceptProposal(appId);
+        const app = applications.find(a => a._id === appId);
+        if (!app) {
+          alert('Application not found');
+          setActionLoading(false);
+          return;
+        }
+
+        // Fetch ProjectEscrow
+        const projectEscrow = await escrowService.getProjectEscrowByListing(listing._id);
+        const escrowId = projectEscrow.escrowId;
+
+        // Always verify state on-chain before executing transaction
+        const onChainEscrow = await sorobanClient.getEscrow(escrowId);
+        if (onChainEscrow.status !== 'FUNDED') {
+          alert(`On-chain escrow status must be FUNDED. Current status: ${onChainEscrow.status}`);
+          setActionLoading(false);
+          return;
+        }
+
+        const activeWallet = walletAddress || currentUser?.walletAddress;
+        if (!activeWallet) {
+          alert('Please connect your Freighter wallet first.');
+          setActionLoading(false);
+          return;
+        }
+
+        const res = await markInProgress(escrowId, activeWallet, app.freelancerId?.walletAddress || '', projectEscrow._id);
+        if (!res.success) {
+          alert(res.error || 'Failed to execute markInProgress on-chain.');
+          setActionLoading(false);
+          return;
+        }
+
+        await proposalService.acceptProposal(appId, { txHash: res.txHash });
       } else {
         await proposalService.rejectProposal(appId);
       }
@@ -194,7 +231,9 @@ export default function ListingDetailPage() {
       const apps = allProposals.filter((p: any) => (p.projectId?._id || p.projectId) === listing._id);
       setApplications(apps);
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to review proposal');
+      alert(err.response?.data?.error || err.message || 'Failed to review proposal');
+    } finally {
+      setActionLoading(false);
     }
   };
 

@@ -169,13 +169,14 @@ export async function fundEscrow(escrowId: string, clientAddress: string): Promi
 /**
  * Marks the escrow in progress.
  */
-export async function markInProgress(escrowId: string, freelancerAddress: string): Promise<string> {
+export async function markInProgress(escrowId: string, callerAddress: string, freelancerAddress: string): Promise<string> {
   const server = new SorobanRpc.Server(STELLAR_CONFIG.RPC_URL);
-  const account = await server.getAccount(freelancerAddress);
+  const account = await server.getAccount(callerAddress);
 
   const op = new Contract(STELLAR_CONFIG.CONTRACT_ID).call(
     'mark_in_progress',
-    nativeToScVal(parseEscrowIdToBigInt(escrowId), { type: 'u64' })
+    nativeToScVal(parseEscrowIdToBigInt(escrowId), { type: 'u64' }),
+    addressToScVal(freelancerAddress)
   );
 
   const tx = new TransactionBuilder(account, {
@@ -285,9 +286,9 @@ export async function requestRefund(escrowId: string, clientAddress: string): Pr
 /**
  * Refunds the escrow.
  */
-export async function refundEscrow(escrowId: string, freelancerAddress: string): Promise<string> {
+export async function refundEscrow(escrowId: string, clientAddress: string): Promise<string> {
   const server = new SorobanRpc.Server(STELLAR_CONFIG.RPC_URL);
-  const account = await server.getAccount(freelancerAddress);
+  const account = await server.getAccount(clientAddress);
 
   const op = new Contract(STELLAR_CONFIG.CONTRACT_ID).call(
     'refund_escrow',

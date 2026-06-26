@@ -135,7 +135,7 @@ export default function DeliveryListPage() {
                   <div className="flex-1 space-y-2">
                     <div className="flex flex-wrap items-center gap-2.5">
                       <span className="font-mono text-[9px] font-black text-slate-400 uppercase bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded">
-                        ID: {dlv.deliveryId}
+                        ID: {dlv.escrowId || dlv._id}
                       </span>
                       {getStatusBadge(dlv.status)}
                       <span className={countdown.color}>
@@ -144,7 +144,7 @@ export default function DeliveryListPage() {
                     </div>
 
                     <h3 className="text-base font-extrabold text-[#0F172A] hover:text-[#7C3AED] transition-colors leading-snug">
-                      <Link to={`/delivery/${dlv.deliveryId}`}>{projectTitle}</Link>
+                      <Link to={`/delivery/${dlv.escrowId || dlv._id}`}>{projectTitle}</Link>
                     </h3>
 
                     <p className="text-xs text-slate-500 line-clamp-2 max-w-3xl leading-relaxed">
@@ -166,7 +166,7 @@ export default function DeliveryListPage() {
                     </div>
 
                     <button
-                      onClick={() => navigate(`/delivery/${dlv.deliveryId}`)}
+                      onClick={() => navigate(`/delivery/${dlv.escrowId || dlv._id}`)}
                       className="flex items-center gap-1.5 px-4.5 py-2.5 bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer"
                     >
                       <PackageOpen className="w-4 h-4" />

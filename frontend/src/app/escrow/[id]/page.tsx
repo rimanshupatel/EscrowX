@@ -207,7 +207,7 @@ export default function EscrowDetailPage() {
   // Freelancer starts work on-chain
   const handleStartWork = async () => {
     try {
-      const res = await markInProgress(escrow.contractId, walletAddress || '', escrow._id);
+      const res = await markInProgress(escrow.contractId, walletAddress || '', escrow.freelancer?.walletAddress || '', escrow._id);
       if (res.success) {
         alert('Work started successfully on-chain! Status updated to In Progress.');
         loadWorkspaceDetails();

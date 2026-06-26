@@ -115,6 +115,7 @@ export async function getSentProposals(req: AuthRequest, res: Response) {
 export async function acceptProposal(req: AuthRequest, res: Response) {
   try {
     const { id } = req.params; // Proposal ID
+    const { txHash } = req.body;
     const clientId = req.user?.userId;
 
     const proposal = await Proposal.findById(id).populate('projectId');
@@ -127,6 +128,13 @@ export async function acceptProposal(req: AuthRequest, res: Response) {
       return res.status(403).json({ error: 'Access denied. You do not own this project.' });
     }
 
+    // Find associated ProjectEscrow
+    const { ProjectEscrow } = require('../models/ProjectEscrow');
+    const projectEscrow = await ProjectEscrow.findOne({ projectId: proposal.projectId });
+    if (!projectEscrow) {
+      return res.status(404).json({ error: 'Associated project escrow not found' });
+    }
+
     proposal.status = 'ACCEPTED';
     await proposal.save();
 
@@ -136,23 +144,21 @@ export async function acceptProposal(req: AuthRequest, res: Response) {
       { status: 'REJECTED' }
     );
 
-    // Automatically create Delivery Record
-    let delivery = await Delivery.findOne({ projectId: proposal.projectId });
-    if (!delivery) {
-      let deliveryId = '';
-      let isUnique = false;
-      while (!isUnique) {
-        deliveryId = 'dlv_' + Math.floor(10000 + Math.random() * 90000);
-        const existing = await Delivery.findOne({ deliveryId });
-        if (!existing) {
-          isUnique = true;
-        }
-      }
+    // Sync project escrow status
+    projectEscrow.status = 'IN_PROGRESS';
+    projectEscrow.projectStatus = 'WORKING';
+    if (txHash) {
+      projectEscrow.transactionHash = txHash;
+    }
+    await projectEscrow.save();
 
+    // Automatically create Delivery Record using escrowId
+    let delivery = await Delivery.findOne({ escrowId: projectEscrow.escrowId });
+    if (!delivery) {
       const calculatedDeadline = new Date(Date.now() + (proposal.expectedDelivery || 7) * 24 * 60 * 60 * 1000);
 
       delivery = new Delivery({
-        deliveryId,
+        escrowId: projectEscrow.escrowId,
         projectId: proposal.projectId,
         freelancerId: proposal.freelancerId,
         clientId: proposal.projectOwnerId,

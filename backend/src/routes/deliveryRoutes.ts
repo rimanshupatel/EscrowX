@@ -7,7 +7,8 @@ import {
   approveDelivery,
   rejectDelivery,
   addComment,
-  getDeliveries
+  getDeliveries,
+  refundDelivery
 } from '../controllers/deliveryController';
 
 const router = Router();
@@ -19,16 +20,17 @@ router.get('/', verifyToken, getDeliveries);
 router.post('/initiate', verifyToken, initiateDelivery);
 
 // Get single delivery detail
-router.get('/:id', verifyToken, getDelivery);
+router.get('/:escrowId', verifyToken, getDelivery);
 
 // Submit deliverables (Freelancer only)
-router.post('/:id/submit', verifyToken, requireRole(['FREELANCER']), submitDelivery);
+router.post('/:escrowId/submit', verifyToken, requireRole(['FREELANCER']), submitDelivery);
 
 // Client review actions
-router.put('/:id/approve', verifyToken, requireRole(['CLIENT']), approveDelivery);
-router.put('/:id/reject', verifyToken, requireRole(['CLIENT']), rejectDelivery);
+router.put('/:escrowId/approve', verifyToken, requireRole(['CLIENT']), approveDelivery);
+router.put('/:escrowId/reject', verifyToken, requireRole(['CLIENT']), rejectDelivery);
+router.put('/:escrowId/refund', verifyToken, requireRole(['CLIENT']), refundDelivery);
 
 // Comment system
-router.post('/:id/comments', verifyToken, addComment);
+router.post('/:escrowId/comments', verifyToken, addComment);
 
 export default router;

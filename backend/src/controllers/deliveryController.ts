@@ -6,11 +6,9 @@ import { ProjectEscrow } from '../models/ProjectEscrow';
 import { ProjectTransaction } from '../models/ProjectTransaction';
 
 // Helper to find a delivery by ObjectId or custom deliveryId (e.g. dlv_12345)
-async function findDeliveryByIdOrCustomId(id: string) {
-  if (id && id.startsWith('dlv_')) {
-    return Delivery.findOne({ deliveryId: id });
-  }
-  return Delivery.findById(id);
+// Helper to find a delivery by escrowId
+async function findDeliveryByEscrowId(escrowId: string) {
+  return Delivery.findOne({ escrowId });
 }
 
 // Get all deliveries for the current logged-in user
@@ -29,7 +27,26 @@ export async function getDeliveries(req: AuthRequest, res: Response) {
       .populate('clientId', 'name username avatar walletAddress')
       .sort({ updatedAt: -1 });
 
-    return res.json(deliveries);
+    const populatedDeliveries = [];
+    for (let dlv of deliveries) {
+      const dlvObj = dlv.toObject();
+      if (!dlvObj.escrowId) {
+        const projId = dlv.projectId?._id || dlv.projectId;
+        if (projId) {
+          const pe = await ProjectEscrow.findOne({ projectId: projId });
+          if (pe) {
+            dlvObj.escrowId = pe.escrowId;
+          }
+        }
+      }
+      // Guarantee a non-undefined ID for UI links/routing
+      if (!dlvObj.escrowId) {
+        dlvObj.escrowId = dlvObj._id.toString();
+      }
+      populatedDeliveries.push(dlvObj);
+    }
+
+    return res.json(populatedDeliveries);
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }
@@ -38,26 +55,16 @@ export async function getDeliveries(req: AuthRequest, res: Response) {
 // Initialize a delivery record when contract starts
 export async function initiateDelivery(req: AuthRequest, res: Response) {
   try {
-    const { projectId, freelancerId, clientId, budget, deadline } = req.body;
-    if (!projectId || !freelancerId || !clientId) {
-      return res.status(400).json({ error: 'Missing projectId, freelancerId, or clientId' });
+    const { projectId, freelancerId, clientId, budget, deadline, escrowId } = req.body;
+    if (!projectId || !freelancerId || !clientId || !escrowId) {
+      return res.status(400).json({ error: 'Missing required delivery details' });
     }
 
     // Check if delivery already exists
-    let delivery = await Delivery.findOne({ projectId });
+    let delivery = await Delivery.findOne({ escrowId });
     if (!delivery) {
-      let deliveryId = '';
-      let isUnique = false;
-      while (!isUnique) {
-        deliveryId = 'dlv_' + Math.floor(10000 + Math.random() * 90000);
-        const existing = await Delivery.findOne({ deliveryId });
-        if (!existing) {
-          isUnique = true;
-        }
-      }
-
       delivery = new Delivery({
-        deliveryId,
+        escrowId,
         projectId,
         freelancerId,
         clientId,
@@ -76,18 +83,40 @@ export async function initiateDelivery(req: AuthRequest, res: Response) {
 // Get single delivery detail (with client vault security gate)
 export async function getDelivery(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const { escrowId } = req.params;
     const userId = req.user?.userId;
 
-    const delivery = id.startsWith('dlv_')
-      ? await Delivery.findOne({ deliveryId: id })
-          .populate('projectId', 'title description deliveryDays budget')
-          .populate('freelancerId', 'name walletAddress username avatar')
-          .populate('clientId', 'name walletAddress username avatar')
-      : await Delivery.findById(id)
+    let delivery = await Delivery.findOne({ escrowId })
+      .populate('projectId', 'title description deliveryDays budget')
+      .populate('freelancerId', 'name walletAddress username avatar')
+      .populate('clientId', 'name walletAddress username avatar');
+
+    // Fallback: if not found by escrowId directly, maybe escrowId is actually the legacy deliveryId
+    if (!delivery) {
+      delivery = await Delivery.findOne({ deliveryId: escrowId } as any)
+        .populate('projectId', 'title description deliveryDays budget')
+        .populate('freelancerId', 'name walletAddress username avatar')
+        .populate('clientId', 'name walletAddress username avatar');
+    }
+
+    // Fallback: lookup by ProjectEscrow
+    if (!delivery) {
+      const pe = await ProjectEscrow.findOne({ escrowId });
+      if (pe) {
+        delivery = await Delivery.findOne({ projectId: pe.projectId })
           .populate('projectId', 'title description deliveryDays budget')
           .populate('freelancerId', 'name walletAddress username avatar')
           .populate('clientId', 'name walletAddress username avatar');
+      }
+    }
+
+    // Fallback: search by _id if it's a valid ObjectId
+    if (!delivery && escrowId && escrowId.match(/^[0-9a-fA-F]{24}$/)) {
+      delivery = await Delivery.findById(escrowId)
+        .populate('projectId', 'title description deliveryDays budget')
+        .populate('freelancerId', 'name walletAddress username avatar')
+        .populate('clientId', 'name walletAddress username avatar');
+    }
 
     if (!delivery) {
       return res.status(404).json({ error: 'Delivery record not found' });
@@ -104,10 +133,14 @@ export async function getDelivery(req: AuthRequest, res: Response) {
     // Convert to plain object for manipulation
     const responseData = delivery.toObject();
 
-    // Attach on-chain escrow ID if it exists
-    const projectEscrow = await ProjectEscrow.findOne({ projectId: delivery.projectId });
-    if (projectEscrow) {
-      responseData.escrowId = projectEscrow.escrowId;
+    // Attach on-chain escrow ID
+    if (delivery.escrowId) {
+      responseData.escrowId = delivery.escrowId;
+    } else {
+      const projectEscrow = await ProjectEscrow.findOne({ projectId: delivery.projectId });
+      if (projectEscrow) {
+        responseData.escrowId = projectEscrow.escrowId;
+      }
     }
 
     // Security Gate check: Client cannot see raw locked files before approval
@@ -130,11 +163,11 @@ export async function getDelivery(req: AuthRequest, res: Response) {
 // Freelancer submits new work delivery
 export async function submitDelivery(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
-    const { notes, demoLink, files, previewFiles } = req.body;
+    const { escrowId } = req.params;
+    const { notes, demoLink, files, previewFiles, txHash } = req.body;
     const freelancerId = req.user?.userId;
 
-    const delivery = await findDeliveryByIdOrCustomId(id);
+    const delivery = await Delivery.findOne({ escrowId });
     if (!delivery) {
       return res.status(404).json({ error: 'Delivery record not found' });
     }
@@ -168,6 +201,17 @@ export async function submitDelivery(req: AuthRequest, res: Response) {
     delivery.status = 'delivered';
 
     await delivery.save();
+
+    // Update ProjectEscrow
+    const projectEscrow = await ProjectEscrow.findOne({ escrowId });
+    if (projectEscrow) {
+      projectEscrow.status = 'DELIVERED';
+      if (txHash) {
+        projectEscrow.transactionHash = txHash;
+      }
+      await projectEscrow.save();
+    }
+
     return res.json(delivery);
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
@@ -177,10 +221,11 @@ export async function submitDelivery(req: AuthRequest, res: Response) {
 // Client approves delivery and unlocks files
 export async function approveDelivery(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const { escrowId } = req.params;
+    const { txHash } = req.body;
     const clientId = req.user?.userId;
 
-    const delivery = await findDeliveryByIdOrCustomId(id);
+    const delivery = await Delivery.findOne({ escrowId });
     if (!delivery) {
       return res.status(404).json({ error: 'Delivery record not found' });
     }
@@ -198,21 +243,24 @@ export async function approveDelivery(req: AuthRequest, res: Response) {
 
     // Release associated ProjectEscrow if it exists
     try {
-      const projectEscrow = await ProjectEscrow.findOne({ projectId: delivery.projectId });
+      const projectEscrow = await ProjectEscrow.findOne({ escrowId });
       if (projectEscrow) {
-        projectEscrow.status = 'RELEASED';
+        projectEscrow.status = 'COMPLETED';
         projectEscrow.escrowStatus = 'RELEASED';
         projectEscrow.projectStatus = 'COMPLETED';
+        if (txHash) {
+          projectEscrow.transactionHash = txHash;
+        }
         await projectEscrow.save();
 
         const tx = new ProjectTransaction({
           escrowId: projectEscrow.escrowId,
-          transactionHash: 'tx_released_' + Math.floor(10000 + Math.random() * 90000) + '_' + Date.now().toString().slice(-4),
+          transactionHash: txHash || 'tx_released_' + Math.floor(10000 + Math.random() * 90000) + '_' + Date.now().toString().slice(-4),
           clientWallet: projectEscrow.clientWallet,
           amount: projectEscrow.budget,
           platformFee: projectEscrow.platformFee,
           totalPaid: projectEscrow.totalAmount,
-          status: 'RELEASED',
+          status: 'COMPLETED',
           date: new Date()
         });
         await tx.save();
@@ -221,7 +269,7 @@ export async function approveDelivery(req: AuthRequest, res: Response) {
       console.error('Error updating associated ProjectEscrow:', escrowErr);
     }
 
-    // Escrow Release Hook Trigger (Placeholder for future smart contract integration)
+    // Escrow Release Hook Trigger
     console.log(`[ESCROW HOOK] Releasing funds for project ${delivery.projectId}. Soroban smart contract triggered.`);
 
     return res.json(delivery);
@@ -233,7 +281,7 @@ export async function approveDelivery(req: AuthRequest, res: Response) {
 // Client requests revisions (rejects submission)
 export async function rejectDelivery(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const { escrowId } = req.params;
     const { reason } = req.body;
     const clientId = req.user?.userId;
 
@@ -241,7 +289,7 @@ export async function rejectDelivery(req: AuthRequest, res: Response) {
       return res.status(400).json({ error: 'A revision reason is required.' });
     }
 
-    const delivery = await findDeliveryByIdOrCustomId(id);
+    const delivery = await Delivery.findOne({ escrowId });
     if (!delivery) {
       return res.status(404).json({ error: 'Delivery record not found' });
     }
@@ -267,7 +315,7 @@ export async function rejectDelivery(req: AuthRequest, res: Response) {
 // Add a feedback comment to the thread
 export async function addComment(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const { escrowId } = req.params;
     const { message } = req.body;
     const userId = req.user?.userId;
 
@@ -275,7 +323,7 @@ export async function addComment(req: AuthRequest, res: Response) {
       return res.status(400).json({ error: 'Message content is required.' });
     }
 
-    const delivery = await findDeliveryByIdOrCustomId(id);
+    const delivery = await Delivery.findOne({ escrowId });
     if (!delivery) {
       return res.status(404).json({ error: 'Delivery record not found' });
     }
@@ -308,3 +356,57 @@ export async function addComment(req: AuthRequest, res: Response) {
     return res.status(500).json({ error: error.message });
   }
 }
+
+// Client refunds delivery escrow
+export async function refundDelivery(req: AuthRequest, res: Response) {
+  try {
+    const { escrowId } = req.params;
+    const { txHash } = req.body;
+    const userId = req.user?.userId;
+
+    if (!txHash) {
+      return res.status(400).json({ error: 'Transaction hash is required.' });
+    }
+
+    const delivery = await Delivery.findOne({ escrowId });
+    if (!delivery) {
+      return res.status(404).json({ error: 'Delivery record not found.' });
+    }
+
+    const isClient = delivery.clientId.toString() === userId;
+    if (!isClient) {
+      return res.status(403).json({ error: 'Access denied. Only the client can request a refund.' });
+    }
+
+    // Update Delivery status
+    delivery.status = 'REFUNDED';
+    await delivery.save();
+
+    // Update ProjectEscrow status
+    const projectEscrow = await ProjectEscrow.findOne({ escrowId });
+    if (projectEscrow) {
+      projectEscrow.status = 'REFUNDED';
+      projectEscrow.escrowStatus = 'REFUNDED';
+      projectEscrow.transactionHash = txHash;
+      await projectEscrow.save();
+    }
+
+    // Create a ProjectTransaction record
+    const transaction = new ProjectTransaction({
+      escrowId,
+      transactionHash: txHash,
+      clientWallet: projectEscrow?.clientWallet || '',
+      amount: delivery.budget,
+      platformFee: projectEscrow?.platformFee || 0,
+      totalPaid: projectEscrow?.totalAmount || delivery.budget,
+      status: 'REFUNDED',
+      date: new Date()
+    });
+    await transaction.save();
+
+    return res.json({ success: true, delivery });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+}
+

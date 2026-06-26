@@ -481,3 +481,17 @@ export async function getProjectTransactions(req: AuthRequest, res: Response) {
     return res.status(500).json({ error: error.message });
   }
 }
+
+// Get single project escrow by listing ID
+export async function getProjectEscrowByListing(req: AuthRequest, res: Response) {
+  try {
+    const { listingId } = req.params;
+    const projectEscrow = await ProjectEscrow.findOne({ projectId: listingId });
+    if (!projectEscrow) {
+      return res.status(404).json({ error: 'Project escrow not found for this listing' });
+    }
+    return res.json(projectEscrow);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+}

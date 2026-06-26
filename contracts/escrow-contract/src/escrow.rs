@@ -66,14 +66,15 @@ pub fn fund_escrow(env: Env, id: u64) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn mark_in_progress(env: Env, id: u64) -> Result<(), Error> {
+pub fn mark_in_progress(env: Env, id: u64, freelancer: Address) -> Result<(), Error> {
     let mut escrow = get_escrow(&env, id)?;
     if escrow.status != Status::Funded as u32 {
         return Err(Error::InvalidState);
     }
 
-    escrow.freelancer.require_auth();
+    escrow.client.require_auth();
 
+    escrow.freelancer = freelancer;
     escrow.status = Status::InProgress as u32;
     update_escrow(&env, &escrow);
     Ok(())
@@ -134,7 +135,7 @@ pub fn refund_escrow(env: Env, id: u64) -> Result<(), Error> {
         return Err(Error::InvalidState);
     }
 
-    escrow.freelancer.require_auth();
+    escrow.client.require_auth();
 
     let token_address = get_token(&env).ok_or(Error::InvalidState)?;
     let contract_address = env.current_contract_address();

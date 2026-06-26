@@ -118,6 +118,10 @@ export const escrowService = {
     const res = await apiClient.post('/escrows/project-escrow', data);
     return res.data;
   },
+  getProjectEscrowByListing: async (listingId: string) => {
+    const res = await apiClient.get(`/escrows/project-escrow/listing/${listingId}`);
+    return res.data;
+  },
   getProjectTransactions: async () => {
     const res = await apiClient.get('/escrows/project-escrow/transactions');
     return res.data;
@@ -318,8 +322,8 @@ export const proposalService = {
     const res = await apiClient.get('/proposals/sent');
     return res.data;
   },
-  acceptProposal: async (proposalId: string) => {
-    const res = await apiClient.put(`/proposals/${proposalId}/accept`);
+  acceptProposal: async (proposalId: string, payload?: { txHash: string }) => {
+    const res = await apiClient.put(`/proposals/${proposalId}/accept`, payload);
     return res.data;
   },
   rejectProposal: async (proposalId: string) => {
@@ -358,24 +362,28 @@ export const deliveryService = {
     const res = await apiClient.post('/deliveries/initiate', { projectId, freelancerId, clientId });
     return res.data;
   },
-  getDelivery: async (id: string) => {
-    const res = await apiClient.get(`/deliveries/${id}`);
+  getDelivery: async (escrowId: string) => {
+    const res = await apiClient.get(`/deliveries/${escrowId}`);
     return res.data;
   },
-  submitDelivery: async (id: string, deliveryData: { notes: string; demoLink?: string; files: string[]; previewFiles: string[] }) => {
-    const res = await apiClient.post(`/deliveries/${id}/submit`, deliveryData);
+  submitDelivery: async (escrowId: string, deliveryData: { notes: string; demoLink?: string; files: string[]; previewFiles: string[]; txHash?: string }) => {
+    const res = await apiClient.post(`/deliveries/${escrowId}/submit`, deliveryData);
     return res.data;
   },
-  approveDelivery: async (id: string) => {
-    const res = await apiClient.put(`/deliveries/${id}/approve`);
+  approveDelivery: async (escrowId: string, txHash?: string) => {
+    const res = await apiClient.put(`/deliveries/${escrowId}/approve`, { txHash });
     return res.data;
   },
-  rejectDelivery: async (id: string, reason: string) => {
-    const res = await apiClient.put(`/deliveries/${id}/reject`, { reason });
+  rejectDelivery: async (escrowId: string, reason: string) => {
+    const res = await apiClient.put(`/deliveries/${escrowId}/reject`, { reason });
     return res.data;
   },
-  addComment: async (id: string, message: string) => {
-    const res = await apiClient.post(`/deliveries/${id}/comments`, { message });
+  refundDelivery: async (escrowId: string, txHash: string) => {
+    const res = await apiClient.put(`/deliveries/${escrowId}/refund`, { txHash });
+    return res.data;
+  },
+  addComment: async (escrowId: string, message: string) => {
+    const res = await apiClient.post(`/deliveries/${escrowId}/comments`, { message });
     return res.data;
   }
 };

@@ -31,8 +31,8 @@ impl EscrowContract {
         escrow::fund_escrow(env, id)
     }
 
-    pub fn mark_in_progress(env: Env, id: u64) -> Result<(), Error> {
-        escrow::mark_in_progress(env, id)
+    pub fn mark_in_progress(env: Env, id: u64, freelancer: Address) -> Result<(), Error> {
+        escrow::mark_in_progress(env, id, freelancer)
     }
 
     pub fn mark_delivered(env: Env, id: u64) -> Result<(), Error> {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { getAddress } from '@stellar/freighter-api';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -25,16 +26,18 @@ import { DashboardLayout } from '../components/dashboard/DashboardLayout';
 import { deliveryService } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import { useEscrowContract } from '../hooks/useEscrowContract';
+import { sorobanClient } from '../lib/soroban';
 
 export default function DeliveryPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user: currentUser, walletAddress } = useAuthStore();
-  const { markDelivered, approveDelivery, requestRefund } = useEscrowContract();
+  const { markDelivered, approveDelivery, requestRefund, refundEscrow } = useEscrowContract();
 
   const [delivery, setDelivery] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [onChainStatus, setOnChainStatus] = useState<string | null>(null);
 
   // Modals state
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -64,6 +67,15 @@ export default function DeliveryPage() {
       if (!id) return;
       const data = await deliveryService.getDelivery(id);
       setDelivery(data);
+      if (data.escrowId) {
+        try {
+          const esc = await sorobanClient.getEscrow(data.escrowId);
+          setOnChainStatus(esc.status);
+        } catch (e) {
+          console.error('Error fetching on-chain escrow status:', e);
+          setOnChainStatus('NOT_FOUND');
+        }
+      }
     } catch (err: any) {
       console.error('Error fetching delivery:', err);
       setError(err.response?.data?.error || 'Failed to load delivery workspace.');
@@ -104,9 +116,38 @@ export default function DeliveryPage() {
         return;
       }
 
-      const activeWallet = walletAddress || currentUser?.walletAddress;
+      let activeWallet = walletAddress || currentUser?.walletAddress;
+      try {
+        const res = await getAddress();
+        if (res) {
+          if (typeof res === 'string') {
+            activeWallet = res;
+            useAuthStore.getState().setWallet(res);
+          } else if (typeof res === 'object' && 'address' in res && res.address) {
+            activeWallet = res.address;
+            useAuthStore.getState().setWallet(res.address);
+          }
+        }
+      } catch (e) {
+        console.warn("Could not get address from Freighter directly:", e);
+      }
+
       if (!activeWallet) {
         setSubmitError('Please connect your wallet first.');
+        setActionLoading(false);
+        return;
+      }
+
+      // Always verify state on-chain before executing transaction
+      const onChainEscrow = await sorobanClient.getEscrow(escrowId);
+      if (onChainEscrow.status !== 'IN_PROGRESS') {
+        setSubmitError(`Invalid contract state: ${onChainEscrow.status}. Expected IN_PROGRESS.`);
+        setActionLoading(false);
+        return;
+      }
+
+      if (activeWallet.toLowerCase() !== onChainEscrow.freelancer.toLowerCase()) {
+        setSubmitError(`Connected wallet (${activeWallet}) does not match the assigned freelancer's wallet (${onChainEscrow.freelancer}). Please switch to the correct account in Freighter.`);
         setActionLoading(false);
         return;
       }
@@ -155,7 +196,22 @@ export default function DeliveryPage() {
       return;
     }
 
-    const activeWallet = walletAddress || currentUser?.walletAddress;
+    let activeWallet = walletAddress || currentUser?.walletAddress;
+    try {
+      const res = await getAddress();
+      if (res) {
+        if (typeof res === 'string') {
+          activeWallet = res;
+          useAuthStore.getState().setWallet(res);
+        } else if (typeof res === 'object' && 'address' in res && res.address) {
+          activeWallet = res.address;
+          useAuthStore.getState().setWallet(res.address);
+        }
+      }
+    } catch (e) {
+      console.warn("Could not get address from Freighter directly:", e);
+    }
+
     if (!activeWallet) {
       alert('Please connect your wallet first.');
       return;
@@ -163,6 +219,20 @@ export default function DeliveryPage() {
 
     setActionLoading(true);
     try {
+      // Always verify state on-chain before executing transaction
+      const onChainEscrow = await sorobanClient.getEscrow(escrowId);
+      if (onChainEscrow.status !== 'DELIVERED') {
+        alert(`Invalid contract state: ${onChainEscrow.status}. Expected DELIVERED.`);
+        setActionLoading(false);
+        return;
+      }
+
+      if (activeWallet.toLowerCase() !== onChainEscrow.client.toLowerCase()) {
+        alert(`Connected wallet (${activeWallet}) does not match the client's wallet (${onChainEscrow.client}). Please switch to the correct account in Freighter.`);
+        setActionLoading(false);
+        return;
+      }
+
       const res = await approveDelivery(
         escrowId,
         activeWallet,
@@ -178,6 +248,74 @@ export default function DeliveryPage() {
       }
     } catch (err: any) {
       alert(err.message || 'Failed to approve delivery.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRefund = async () => {
+    if (!window.confirm('Are you sure you want to cancel this milestone and refund the locked funds to your wallet? This action is final.')) return;
+
+    const escrowId = delivery.escrowId;
+    if (!escrowId) {
+      alert('No on-chain escrow ID found for this project.');
+      return;
+    }
+
+    // Get the latest address directly from Freighter to handle extension account switching
+    let activeWallet = walletAddress || currentUser?.walletAddress;
+    try {
+      const res = await getAddress();
+      if (res) {
+        if (typeof res === 'string') {
+          activeWallet = res;
+          useAuthStore.getState().setWallet(res);
+        } else if (typeof res === 'object' && 'address' in res && res.address) {
+          activeWallet = res.address;
+          useAuthStore.getState().setWallet(res.address);
+        }
+      }
+    } catch (e) {
+      console.warn("Could not get address from Freighter directly:", e);
+    }
+
+    if (!activeWallet) {
+      alert('Please connect your wallet first.');
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      // Always verify state on-chain before executing transaction
+      const onChainEscrow = await sorobanClient.getEscrow(escrowId);
+      const allowedOnChain = ['FUNDED', 'IN_PROGRESS', 'DELIVERED', 'REVISION_REQUESTED'];
+      if (!allowedOnChain.includes(onChainEscrow.status)) {
+        alert(`Invalid contract state: ${onChainEscrow.status}. Cannot refund.`);
+        setActionLoading(false);
+        return;
+      }
+
+      if (activeWallet.toLowerCase() !== onChainEscrow.client.toLowerCase()) {
+        alert(`Connected wallet (${activeWallet}) does not match the client's wallet (${onChainEscrow.client}). Please switch to the correct account in Freighter.`);
+        setActionLoading(false);
+        return;
+      }
+
+      const res = await refundEscrow(
+        escrowId,
+        activeWallet,
+        id!,
+        true // isProjectDelivery
+      );
+
+      if (res.success) {
+        alert('Milestone cancelled. Funds successfully refunded to your wallet!');
+        fetchDeliveryDetails();
+      } else {
+        alert(`Failed to execute refund: ${res.error}`);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to request refund.');
     } finally {
       setActionLoading(false);
     }
@@ -280,7 +418,8 @@ export default function DeliveryPage() {
     working: { label: 'Working', style: 'bg-amber-50 text-amber-600 border-amber-200' },
     delivered: { label: 'Delivered', style: 'bg-green-50 text-green-600 border-green-200 animate-pulse' },
     approved: { label: 'Approved', style: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
-    revision_requested: { label: 'Revision Requested', style: 'bg-rose-50 text-rose-600 border-rose-200' }
+    revision_requested: { label: 'Revision Requested', style: 'bg-rose-50 text-rose-600 border-rose-200' },
+    REFUNDED: { label: 'Refunded', style: 'bg-rose-100 text-rose-800 border-rose-300' }
   };
   const activeStatus = statusConfig[delivery.status] || { label: delivery.status, style: 'bg-slate-100 text-slate-500' };
   const hasUploadedDeliveries = delivery.versions && delivery.versions.length > 0;
@@ -396,6 +535,16 @@ export default function DeliveryPage() {
                     <div>
                       <strong className="text-emerald-800 font-bold block mb-0.5">Delivery Accepted & Approved</strong>
                       Escrow funds have been authorized for release. Original final files inside the Delivery Vault are fully decrypted and available to the client below.
+                    </div>
+                  </div>
+                )}
+
+                {delivery.status === 'REFUNDED' && (
+                  <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl text-rose-700 text-xs flex gap-2.5 leading-relaxed">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
+                    <div>
+                      <strong className="text-rose-800 font-bold block mb-0.5">Project Cancelled & Refunded</strong>
+                      This milestone has been cancelled. Locked escrow funds have been returned to the client's wallet.
                     </div>
                   </div>
                 )}
@@ -741,10 +890,11 @@ export default function DeliveryPage() {
               
               <div className="space-y-2.5">
                 {/* FREELANCER ACTION: Submit delivery */}
-                {isFreelancer && delivery.status !== 'approved' && (
+                {isFreelancer && delivery.status !== 'approved' && delivery.status !== 'REFUNDED' && (
                   <button
                     onClick={() => setUploadModalOpen(true)}
-                    className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-bold transition-all cursor-pointer shadow-sm"
+                    disabled={onChainStatus !== 'IN_PROGRESS'}
+                    className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-bold transition-all cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <PlusCircle className="w-4 h-4" /> Deliver Work
                   </button>
@@ -755,36 +905,67 @@ export default function DeliveryPage() {
                   <>
                     <button
                       onClick={handleApprove}
-                      disabled={actionLoading}
-                      className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                      disabled={actionLoading || onChainStatus !== 'DELIVERED'}
+                      className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Check className="w-4 h-4" /> Accept Project
                     </button>
                     <button
                       onClick={() => setRevisionModalOpen(true)}
-                      className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl border border-red-200 bg-white hover:bg-red-50 text-red-600 text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                      className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl border border-[#E2E8F0] bg-white hover:bg-slate-50 text-slate-600 text-xs font-bold transition-all cursor-pointer shadow-2xs mb-2"
                     >
                       <X className="w-4 h-4" /> Request Changes / Reject
+                    </button>
+                    <button
+                      onClick={handleRefund}
+                      disabled={actionLoading || onChainStatus !== 'DELIVERED'}
+                      className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl border border-rose-200 bg-white hover:bg-rose-50 text-rose-600 text-xs font-bold transition-all cursor-pointer shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <AlertTriangle className="w-4 h-4" /> Cancel & Request Refund
                     </button>
                   </>
                 )}
 
                 {/* Empty State / Pending message */}
                 {isClient && delivery.status === 'working' && (
-                  <div className="p-3 text-[10px] text-amber-600 bg-amber-50 border border-amber-100 rounded-lg font-medium text-center">
-                    Oops! No delivery submitted yet.
-                  </div>
+                  <>
+                    <div className="p-3 text-[10px] text-amber-600 bg-amber-50 border border-amber-100 rounded-lg font-medium text-center mb-2">
+                      Oops! No delivery submitted yet.
+                    </div>
+                    <button
+                      onClick={handleRefund}
+                      disabled={actionLoading || (onChainStatus !== 'FUNDED' && onChainStatus !== 'IN_PROGRESS')}
+                      className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl border border-rose-200 bg-white hover:bg-rose-50 text-rose-600 text-xs font-bold transition-all cursor-pointer shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <AlertTriangle className="w-4 h-4" /> Cancel & Request Refund
+                    </button>
+                  </>
                 )}
 
                 {isClient && delivery.status === 'revision_requested' && (
-                  <div className="p-3 text-[10px] text-amber-600 bg-amber-50/50 border border-amber-200 rounded-lg font-medium text-center">
-                    Waiting for revised submission version...
-                  </div>
+                  <>
+                    <div className="p-3 text-[10px] text-amber-600 bg-amber-50/50 border border-amber-200 rounded-lg font-medium text-center mb-2">
+                      Waiting for revised submission version...
+                    </div>
+                    <button
+                      onClick={handleRefund}
+                      disabled={actionLoading || (onChainStatus !== 'FUNDED' && onChainStatus !== 'IN_PROGRESS' && onChainStatus !== 'REVISION_REQUESTED')}
+                      className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl border border-rose-200 bg-white hover:bg-rose-50 text-rose-600 text-xs font-bold transition-all cursor-pointer shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <AlertTriangle className="w-4 h-4" /> Cancel & Request Refund
+                    </button>
+                  </>
                 )}
 
                 {delivery.status === 'approved' && (
                   <div className="p-3 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg font-bold text-center flex items-center justify-center gap-1">
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Milestone Completed
+                  </div>
+                )}
+
+                {delivery.status === 'REFUNDED' && (
+                  <div className="p-3 text-[10px] text-rose-700 bg-rose-50 border border-rose-200 rounded-lg font-bold text-center flex items-center justify-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-600" /> Milestone Cancelled & Refunded
                   </div>
                 )}
               </div>

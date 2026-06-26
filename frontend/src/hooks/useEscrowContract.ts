@@ -158,6 +158,7 @@ export function useEscrowContract() {
    */
   async function markInProgress(
     escrowId: string,
+    callerAddress: string,
     freelancerAddress: string,
     backendEscrowId?: string
   ): Promise<ContractResponse<string>> {
@@ -167,23 +168,11 @@ export function useEscrowContract() {
 
     try {
       // Build and simulate
-      const preparedXdr = await sorobanClient.markInProgress(escrowId, freelancerAddress);
+      const preparedXdr = await sorobanClient.markInProgress(escrowId, callerAddress, freelancerAddress);
 
       // Sign and submit
-      const hash = await signAndSubmitTx(preparedXdr, freelancerAddress);
+      const hash = await signAndSubmitTx(preparedXdr, callerAddress);
       setTxHash(hash);
-
-      // Optionally post workspace update to backend
-      if (backendEscrowId) {
-        await axios.post(
-          `http://localhost:5000/api/escrows/${backendEscrowId}/updates`,
-          {
-            note: 'Freelancer started working on the project. Contract updated to InProgress.',
-            txHash: hash,
-          },
-          getHeaders()
-        );
-      }
 
       setLoading(false);
       return { success: true, txHash: hash, data: hash };
@@ -345,12 +334,13 @@ export function useEscrowContract() {
   }
 
   /**
-   * Performs freelancer-authorized refund.
+   * Performs client-authorized refund.
    */
   async function refundEscrow(
     escrowId: string,
-    freelancerAddress: string,
-    backendEscrowId: string
+    clientAddress: string,
+    backendEscrowId: string,
+    isProjectDelivery: boolean = false
   ): Promise<ContractResponse<string>> {
     setLoading(true);
     setError(null);
@@ -358,18 +348,26 @@ export function useEscrowContract() {
 
     try {
       // Build and simulate
-      const preparedXdr = await sorobanClient.refundEscrow(escrowId, freelancerAddress);
+      const preparedXdr = await sorobanClient.refundEscrow(escrowId, clientAddress);
 
       // Sign and submit
-      const hash = await signAndSubmitTx(preparedXdr, freelancerAddress);
+      const hash = await signAndSubmitTx(preparedXdr, clientAddress);
       setTxHash(hash);
 
       // Sync with backend (sets state to REFUNDED)
-      await axios.put(
-        `http://localhost:5000/api/escrows/${backendEscrowId}/refund`,
-        { txHash: hash },
-        getHeaders()
-      );
+      if (isProjectDelivery) {
+        await axios.put(
+          `http://localhost:5000/api/deliveries/${backendEscrowId}/refund`,
+          { txHash: hash },
+          getHeaders()
+        );
+      } else {
+        await axios.put(
+          `http://localhost:5000/api/escrows/${backendEscrowId}/refund`,
+          { txHash: hash },
+          getHeaders()
+        );
+      }
 
       setLoading(false);
       return { success: true, txHash: hash, data: hash };

@@ -7,7 +7,7 @@ export interface IProjectEscrow extends Document {
   budget: number;
   platformFee: number;
   totalAmount: number;
-  status: 'FUNDED' | 'LOCKED' | 'RELEASED' | 'REFUNDED';
+  status: 'FUNDED' | 'LOCKED' | 'RELEASED' | 'REFUNDED' | 'IN_PROGRESS' | 'DELIVERED' | 'COMPLETED';
   escrowStatus: 'LOCKED' | 'RELEASED' | 'REFUNDED';
   projectStatus: 'OPEN_FOR_PROPOSALS' | 'WORKING' | 'COMPLETED';
   projectId: Schema.Types.ObjectId; // References the Listing/Project created
@@ -22,7 +22,7 @@ const ProjectEscrowSchema = new Schema<IProjectEscrow>({
   budget: { type: Number, required: true },
   platformFee: { type: Number, required: true },
   totalAmount: { type: Number, required: true },
-  status: { type: String, enum: ['FUNDED', 'LOCKED', 'RELEASED', 'REFUNDED'], default: 'FUNDED' },
+  status: { type: String, enum: ['FUNDED', 'LOCKED', 'RELEASED', 'REFUNDED', 'IN_PROGRESS', 'DELIVERED', 'COMPLETED'], default: 'FUNDED' },
   escrowStatus: { type: String, enum: ['LOCKED', 'RELEASED', 'REFUNDED'], default: 'LOCKED' },
   projectStatus: { type: String, enum: ['OPEN_FOR_PROPOSALS', 'WORKING', 'COMPLETED'], default: 'OPEN_FOR_PROPOSALS' },
   projectId: { type: Schema.Types.ObjectId, ref: 'Listing', required: true },
