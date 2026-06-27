@@ -84,38 +84,23 @@ Clients often fear paying before receiving quality work, while freelancers fear 
 ---
 ## ⚡ Smart Contract Test Flow
 <img width="1968" height="1204" alt="Screenshot 2026-06-27 160720" src="https://github.com/user-attachments/assets/b52ce6af-d301-45ba-9fd8-4873e3be0e8a" />
----
-## ⚙️ Core Smart Contract Functions
-
-| Function | Description |
-|---|---|
-| `create_escrow()` | Create escrow agreement on-chain |
-| `fund_escrow()` | Lock client funds inside smart contract |
-| `get_escrow()` | Read escrow details and current status |
-| `mark_in_progress()` | Move escrow to IN_PROGRESS |
-| `mark_delivered()` | Mark work as DELIVERED |
-| `approve_delivery()` | Release locked funds to freelancer |
-| `raise_dispute()` | Raise a dispute between parties |
-| `request_refund()` | Client requests refund |
-| `resolve_dispute()` | Admin resolves dispute |
-| `refund_escrow()` | Return locked funds back to client |
 
 ---
 
-## ✅ Smart Contract Test Cases
+## ⚙️ Core Smart Contract Functions & Test Cases
 
-| # | Function | Status | Result |
-|---|---|---|---| 
-| 1 | `create_escrow` | ✅ Pass | Escrow ID `5` created |
-| 2 | `get_escrow` | ✅ Pass | Status `0` (Pending) |
-| 3 | `fund_escrow` | ✅ Pass | `1 XLM` locked in contract |
-| 4 | `mark_in_progress` | ✅ Pass | Status updated |
-| 5 | `mark_delivered` | ✅ Pass | Work marked delivered |
-| 6 | `approve_delivery` | ✅ Pass | `1 XLM` released to freelancer |
-| 7 | `raise_dispute` | ✅ Pass | Dispute raised on-chain |
-| 8 | `request_refund` | ✅ Pass | Refund requested |
-| 9 | `resolve_dispute` | ✅ Pass | Dispute resolved by admin |
-| 10 | `refund_escrow` | ✅ Pass | Funds returned to client |
+| Function | Description |Status|
+|---|---|---|
+| `create_escrow()` | Create escrow agreement on-chain | ✅ Pass |
+| `fund_escrow()` | Lock client funds inside smart contract |✅ Pass |
+| `get_escrow()` | Read escrow details and current status |✅ Pass |
+| `mark_in_progress()` | Move escrow to IN_PROGRESS |✅ Pass |
+| `mark_delivered()` | Mark work as DELIVERED |✅ Pass |
+| `approve_delivery()` | Release locked funds to freelancer |✅ Pass |
+| `raise_dispute()` | Raise a dispute between parties |✅ Pass |
+| `request_refund()` | Client requests refund |✅ Pass |
+| `resolve_dispute()` | Admin resolves dispute |✅ Pass |
+| `refund_escrow()` | Return locked funds back to client |✅ Pass |
 
 **10/10 Functions Passing on Stellar Testnet** 🚀
 
