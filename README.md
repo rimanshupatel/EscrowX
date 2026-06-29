@@ -93,9 +93,9 @@ Clients often fear paying before receiving quality work, while freelancers fear 
 | 8 | Parth Karan | parthdhimman@gmail.com | `GCAQNSZQVI2PYYHYI4O5NK655O4ZZJWQGIHNEWYWLJXGUOOAW6LQRG7F` | Testnet | ⭐ 5/5 |
 | 9 | Ayush Sarkar | ayushsarkarfkt@gmail.com | `9EkKnoZhcAGejA2gWeNsDAkWM531UcBD9fyiPzMsYA6C` | Testnet | ⭐ 5/5 |
 | 10 | Rudra Pratap Singh | iitianrps24@gmail.com | `GBAOLJDF6UDRASQEAY2NEW2D3US3VWZFBJFVIKRWI3KNW6JE35OXCGFC` | Testnet | ⭐ 5/5 |
-| 10 | Rohan Kumar | 123131rkorohan@gmail.com | `GBVC7GUZZDXSVMJ6VFHRGMDDDZQJTVSF4WKKNHHLGOSM2QJJVAHEQSUG` | Testnet | ⭐ 5/5 |
+| 11 | Rohan Kumar | 123131rkorohan@gmail.com | `GBVC7GUZZDXSVMJ6VFHRGMDDDZQJTVSF4WKKNHHLGOSM2QJJVAHEQSUG` | Testnet | ⭐ 5/5 |
 
-> **Total Users Onboarded:** 10 &nbsp;|&nbsp; **Average Rating:** ⭐ 4.9/5 &nbsp;|&nbsp; **Recommend Rate:** 100%
+> **Total Users Onboarded:** 11 &nbsp;|&nbsp; **Average Rating:** ⭐ 4.9/5 &nbsp;|&nbsp; **Recommend Rate:** 100%
 
 ---
 
